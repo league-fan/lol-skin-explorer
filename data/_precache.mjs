@@ -78,4 +78,4 @@ async function main() {
   cache.destroy();
 }
 
-main();
+// main();

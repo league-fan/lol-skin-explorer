@@ -14,12 +14,16 @@ export function comparePatches(a, b) {
 
 export class Patch {
   fullVersionString = require("./.cache/persistentVars.json").oldVersionString;
+  supportedLanguages = require("./.cache/supportedLanguages.json");
 
-  champions = require("./.cache/champions.json");
-  skinlines = require("./.cache/skinlines.json");
-  skins = require("./.cache/skins.json");
-  universes = require("./.cache/universes.json");
+  currLang = "zh_cn";
   added = require("./.cache/added.json");
+  assets = {
+    champions: require("./.cache/champions.json"),
+    skins: require("./.cache/skins.json"),
+    skinlines: require("./.cache/skinlines.json"),
+    universes: require("./.cache/universes.json"),
+  }
 
   url(path) {
     return `${CDRAGON}/${this.name}${path}`;
@@ -31,5 +35,21 @@ export class Patch {
 
   asset(path) {
     return this.data(path.replace("/lol-game-data/assets", "").toLowerCase());
+  }
+
+  get champions() {
+    return this.assets.champions[this.currLang];
+  }
+
+  get skinlines() {
+    return this.assets.skinlines[this.currLang];
+  }
+
+  get universes() {
+    return this.assets.universes[this.currLang];
+  }
+
+  get skins() {
+    return this.assets.skins[this.currLang];
   }
 }

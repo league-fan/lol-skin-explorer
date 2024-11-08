@@ -14,7 +14,7 @@ export class Store {
   changes = require("./.cache/changes.json");
 
   constructor() {
-    const { champions, skinlines, universes, skins } = this.patch;
+    const { champions, universes, skinlines, skins } = this.patch;
 
     this.fuse = new Fuse(
       champions

@@ -1,0 +1,113 @@
+name: Update and Build
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '5 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.get_version.conclusion }}
+    env:
+      VERSION_URL: "https://raw.communitydragon.org/pbe/content-metadata.json"
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: 'true'
+
+    - name: Retrieve latest version
+      id: get_version
+      run: |
+        echo "LATEST_VERSION=`curl -s {{ env.VERSION_URL }} | jq -r '.version'`" | tee -a $GITHUB_ENV
+        echo "CURRENT_VERSION=`cat VERSION`" | tee -a $GITHUB_ENV
+        # fail if versions are the same
+        test $LATEST_VERSION = $CURRENT_VERSION && exit 1 || exit 0
+
+  build:
+    needs: check
+    if: needs.check.outputs.status == 'success'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+    
+      - name: Detect package manager
+        id: detect-package-manager
+        run: |
+          if [ -f "${{ github.workspace }}/yarn.lock" ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+            echo "command=install" >> $GITHUB_OUTPUT
+            echo "runner=yarn" >> $GITHUB_OUTPUT
+            exit 0
+          elif [ -f "${{ github.workspace }}/package.json" ]; then
+            echo "manager=npm" >> $GITHUB_OUTPUT
+            echo "command=ci" >> $GITHUB_OUTPUT
+            echo "runner=npx --no-install" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "Unable to determine package manager"
+            exit 1
+          fi
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Scraper
+        working-directory: ./scraper
+        run: |
+          ${{ steps.detect-package-manager.outputs.manager }} install
+          ${{ steps.detect-package-manager.outputs.manager }} start
+          echo "NEW_VERSION=`cat .cache/persistentVars.json | jq -r '.oldVersionString'`" | tee -a $GITHUB_ENV | tee VERSION
+
+      - name: Git add & commit
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: 'VERSION'
+          default_author: github_actions
+          message: "chore: publish version ${{ env.NEW_VERSION }}"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Automatically inject basePath in your Next.js configuration file and disable
+          # server side image optimization (https://nextjs.org/docs/api-reference/next/image#unoptimized).
+          #
+          # You may remove this line if you want to manage the configuration yourself.
+          static_site_generator: next
+      
+      - name: Install dependencies
+        run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+
+      - name: Build with Next.js
+        run: ${{ steps.detect-package-manager.outputs.runner }} next build
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      
+      
+
