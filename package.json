@@ -8,9 +8,10 @@
   "version": "1.1.0",
   "private": true,
   "scripts": {
-    "precache": "node data/_precache.mjs",
-    "dev": "npm run precache && next dev",
-    "build": "npm run precache && next build",
+    "precache": "git submodule update --init --recursive && cd scraper && yarn install && yarn start",
+    "copy": "cp -rf scraper/.cache data/",
+    "dev": "yarn precache && yarn copy && next dev",
+    "build": "yarn precache && yarn copy && next build",
     "start": "next start",
     "lint": "next lint"
   },
